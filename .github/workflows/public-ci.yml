@@ -1,0 +1,41 @@
+name: Public Source CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    if: github.repository != 'Lumielle-BlueOMOcean/lumielle-echo'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: python -m pip install 'PyYAML>=6,<7'
+      - run: python scripts/ci/quality.py . --release --target-repo "$GITHUB_REPOSITORY"
+      - run: python -c "from scripts.ci.fresh_install_smoke import run_candidate_package_smoke; print(run_candidate_package_smoke('.'))"
+
+  runtime:
+    if: github.repository != 'Lumielle-BlueOMOcean/lumielle-echo'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        astrbot: ['4.22.0', '4.25.5']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install "AstrBot==${{ matrix.astrbot }}" 'PyYAML>=6,<7'
+      - run: python scripts/ci/astrbot_runtime_smoke.py --release --target-repo "$GITHUB_REPOSITORY" --astrbot-version '${{ matrix.astrbot }}'

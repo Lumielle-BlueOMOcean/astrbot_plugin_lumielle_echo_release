@@ -1,0 +1,169 @@
+{
+  "persona_isolation_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "开启后，不同 UMO 人格之间不共享记忆。"
+  },
+  "memory_authority_bootstrap_version": {
+    "type": "int",
+    "default": 0,
+    "invisible": true,
+    "description": "内部一次性初始化标记：新空库首次启动后固定推荐的 Atomic authority；已有数据库及非默认配置不自动切换。"
+  },
+  "persona_name": {
+    "type": "string",
+    "default": "默认人格",
+    "description": "当前运行人格名称，用于 UMO 身份识别。"
+  },
+  "evolution_scope_mode": {
+    "type": "string",
+    "default": "user_persona",
+    "options": ["user_persona", "global_persona"],
+    "description": "人格演化路线。user_persona 按用户与人格隔离；global_persona 由同一 Bot 人格的多个用户共同推动。两条路线不迁移历史。"
+  },
+  "evolution_autonomy_profile": {
+    "type": "string",
+    "default": "balanced",
+    "options": ["conservative", "balanced", "adaptive"],
+    "description": "人格自治档位：conservative 提高门槛，balanced 使用默认门槛，adaptive 适度降低门槛。旧 evolution_apply_mode 仅读取兼容。"
+  },
+  "personality_plasticity": {
+    "type": "int",
+    "default": 50,
+    "description": "人格可塑性，范围 0-100。与原始人格冲突度共同影响门槛和变化强度。"
+  },
+  "confirmation_timeout_hours": {
+    "type": "int",
+    "default": 24,
+    "description": "历史兼容字段；新自治路径不创建人工确认等待任务。"
+  },
+  "cooldown_hours": {
+    "type": "int",
+    "default": 72,
+    "description": "人格回滚后，同一维度按时间计算的冷却期。"
+  },
+  "cooldown_sessions": {
+    "type": "int",
+    "default": 100,
+    "description": "人格回滚后，同一维度按独立会话计算的冷却上限；时间或会话数任一先达到即释放。"
+  },
+  "bot_id": {
+    "type": "string",
+    "default": "",
+    "description": "可选 Bot 稳定标识。留空时自动使用当前消息事件中的 Bot ID。"
+  },
+  "semantic_analysis_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "使用 LLM 理解、提炼并分类对话记忆。"
+  },
+  "analyzer_provider_id": {
+    "type": "string",
+    "default": "",
+    "description": "独立语义分析模型 ID，仅接受 Chat Completion Provider。类型不符时回退当前会话模型；留空使用当前会话模型。"
+  },
+  "analysis_batch_size": {
+    "type": "int",
+    "default": 3,
+    "description": "普通消息累计多少条后批量分析。"
+  },
+  "analysis_flush_interval_seconds": {
+    "type": "int",
+    "default": 120,
+    "description": "普通消息最长等待分析时间，单位为秒。"
+  },
+  "analysis_max_concurrency": {
+    "type": "int",
+    "default": 2,
+    "description": "语义分析最大并发数。"
+  },
+  "analysis_max_retries": {
+    "type": "int",
+    "default": 3,
+    "description": "语义分析失败的最大尝试次数；超限后保存到本地失败队列。"
+  },
+  "analysis_close_timeout_seconds": {
+    "type": "int",
+    "default": 10,
+    "description": "插件关闭时等待批量分析的总时限，超时批次保存到失败队列。"
+  },
+  "analysis_confidence_threshold": {
+    "type": "float",
+    "default": 0.65,
+    "description": "低于该置信度的 LLM 记忆动作会被本地拒绝。"
+  },
+  "atomic_shadow_write_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "实验性 Atomic Shadow Write 旁路写入；关闭时只使用 Legacy memory_records，开启也不改变正式召回。"
+  },
+  "write_mode": {
+    "type": "string",
+    "default": "legacy",
+    "options": ["legacy", "atomic_required_legacy_mirror", "atomic_native"],
+    "description": "正式写入模式：使用 AstrBot 完整兼容默认配置的新空库首次启动时切到 atomic_native；已有安装保留当前选择。legacy 保持旧版正式写入与可选 Shadow；atomic_required_legacy_mirror 将 Legacy 作为兼容 ID 镜像并要求同事务成功；atomic_native 以 Atomic 为唯一线上写入存储。"
+  },
+  "target_authority": {
+    "type": "string",
+    "default": "legacy",
+    "options": ["legacy", "atomic"],
+    "description": "生命周期目标权威：legacy 保持 target_memory_id；atomic 仅允许 Analyzer/Validator/Lifecycle 使用本轮 allowlist 中的 target_atom_id。Atomic 模式要求 write_mode=atomic_required_legacy_mirror 或 atomic_native。"
+  },
+  "persona_reference_authority": {
+    "type": "string",
+    "default": "legacy",
+    "options": ["legacy", "atomic"],
+    "description": "人格演化引用权威：legacy 继续使用 Legacy memory_id；atomic 使用独立 Atomic atom_id 引用层。真正新空库可在首次启动时自动创建 additive Persona Atomic schema；已有数据库不自动迁移。"
+  },
+  "atomic_retrieval_shadow_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "实验性 Atomic Hybrid Retrieval 旁路对照；仅在后台计算 Legacy/Atomic 差异，不注入回答、不改变正式召回。"
+  },
+  "retrieval_mode": {
+    "type": "string",
+    "default": "legacy",
+    "options": ["legacy", "atomic_primary_legacy_overlay", "atomic_only"],
+    "description": "正式召回模式：新空库首次启动推荐 atomic_only；legacy 仅使用旧召回；atomic_primary_legacy_overlay 以 Atomic 为主并用 Legacy 补充尚未 Atomic 化的数据；atomic_only 仅使用 Atomic。"
+  },
+  "atomic_retrieval_benchmark_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "受控 Shadow Benchmark 开关；仅在显式活动 Session 中把有限语义样本保存到本机，不改变正式召回。"
+  },
+  "atomic_retrieval_benchmark_max_samples": {
+    "type": "int",
+    "default": 100,
+    "description": "单个受控 Benchmark Session 的最大样本数，达到上限后自动停止记录。"
+  },
+  "embedding_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "启用 AstrBot Embedding Provider 增强语义召回。"
+  },
+  "embedding_provider_id": {
+    "type": "string",
+    "default": "",
+    "description": "Embedding Provider ID，仅接受 Embedding Provider。类型不符时回退首个合法实例；留空时选择首个可用实例。"
+  },
+  "retrieval_candidate_limit": {
+    "type": "int",
+    "default": 100,
+    "description": "每次召回参与综合排序的候选上限。"
+  },
+  "injection_memory_limit": {
+    "type": "int",
+    "default": 24,
+    "description": "单轮最多注入的记忆数量。"
+  },
+  "injection_budget_chars": {
+    "type": "int",
+    "default": 8000,
+    "description": "记忆注入包的近似字符预算。"
+  },
+  "angel_migration_profile_path": {
+    "type": "string",
+    "default": "",
+    "description": "仅离线 Angel Migration 操作读取的受保护配置文件路径；留空时迁移不可用，普通 Runtime 启动不会读取。"
+  }
+}

@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>微光回响 · Lumielle Echo</title>
+  <link rel="stylesheet" href="./style.css">
+  <link rel="stylesheet" href="./explorer.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="hero workspace-page is-active" id="overview" data-page="overview">
+      <div>
+        <p class="eyebrow">LUMIELLE ECHO · CONTROL PANEL（控制台）</p>
+        <h1>微光回响 <span>Lumielle Echo</span></h1>
+      </div>
+      <div id="notice" role="status" aria-live="polite"></div>
+    </header>
+
+    <nav class="facade-nav" aria-label="功能导航">
+      <a href="#overview" data-page-nav="overview">总览 Overview（总览）</a>
+      <a href="#settings" data-page-nav="settings">设置 Settings（设置）</a>
+      <a href="#memory" data-page-nav="memory">记忆 Memory（记忆）</a>
+      <a href="#profile" data-page-nav="profile">用户画像 Profile（画像）</a>
+      <a href="#persona" data-page-nav="persona">当前人格 Persona（人格）</a>
+      <a href="#cognition" data-page-nav="cognition">人格候选 Cognition（认知）</a>
+      <a href="#versions" data-page-nav="versions">人格成长 Persona Growth</a>
+    </nav>
+
+    <section class="overview-grid workspace-page" data-page="overview" aria-label="运行概览">
+      <article class="summary-card"><span>记忆底座</span><strong>Atomic-only（仅原子）正式召回</strong><small>Atomic（原子记忆）生命周期与 Persona（人格）引用是当前权威；历史 Legacy（旧记忆）仅保留作档案</small></article>
+      <article class="summary-card"><span>人格演化</span><strong>自治候选 / 版本管理</strong><small>观察门槛、主动提前采用、版本记录与回滚</small></article>
+      <article class="summary-card"><span>当前连接</span><strong id="connectionSummary">正在连接</strong><small id="identitySummary">等待 AstrBot 会话身份</small></article>
+    </section>
+
+    <section class="panel workspace-page" id="settings" data-page="settings">
+      <div class="section-heading"><div><p class="kicker">CONTROL（控制）</p><h2>基本配置</h2></div><span class="section-tag">实时生效</span></div>
+      <div class="form-grid">
+        <label class="field"><span>操作对象</span><select id="identity"><option value="">等待 AstrBot 会话身份</option></select></label>
+        <label class="field"><span>保存范围</span><select id="settingsScope"><option value="global">全局默认</option><option value="identity">当前用户覆盖</option></select></label>
+        <label class="field"><span>语义分析模型</span><select disabled><option>沿用 AstrBot 当前会话 Provider（服务提供方）</option></select><small>模型切换请在 AstrBot 插件配置页完成</small></label>
+        <label class="field"><span>Embedding（向量索引）模型</span><select disabled><option>自动选择首个可用 Provider（服务提供方）</option></select><small>留空时保持已验证的自动选择逻辑</small></label>
+      </div>
+
+      <p id="scopeContext" class="scope-context">当前分支：等待 AstrBot 会话身份</p>
+      <fieldset class="route-switch">
+        <legend>人格路线</legend>
+        <label><input type="radio" name="route" value="user_persona" checked><span>路线 1 · 用户人格</span></label>
+        <label><input type="radio" name="route" value="global_persona"><span>路线 2 · 全局人格</span></label>
+      </fieldset>
+      <p class="hint"><code>user_persona</code> 与 <code>global_persona</code> 各自保留历史；切换路线不迁移历史，也不会混合旧证据。</p>
+
+      <div class="form-grid compact">
+        <label class="field"><span>人格自治档位</span><select id="mode"><option value="conservative">Conservative（保守）</option><option value="balanced">Balanced（均衡）</option><option value="adaptive">Adaptive（自适应）</option></select></label>
+        <div class="field slider"><label for="plasticity">可塑性 <output id="plasticityValue">50</output></label><input id="plasticity" name="plasticity" type="range" min="0" max="100" step="1" value="50"></div>
+      </div>
+      <p class="hint">档位会调整 Core / Secondary / Dynamic 的基础门槛；可塑性与原始人格冲突继续由同一门槛公式计算。可塑性为 0 时继续观察与积累证据，但不会自动应用。</p>
+      <button id="save" type="button">保存设置</button>
+    </section>
+
+    <section class="panel workspace-page" id="memories" data-page="memory">
+      <div class="section-heading"><div><p class="kicker">MEMORY EXPLORER（原子记忆浏览）</p><h2>原子记忆 · 记忆列表</h2></div><span class="section-tag">浏览 + 手动操作</span></div>
+      <div class="memory-view-switch" role="group" aria-label="记忆视图切换">
+        <button id="memoryViewList" type="button" class="view-switch active" data-memory-view="list" aria-pressed="true">List View（列表视图）</button>
+        <button id="memoryViewAtomic" type="button" class="view-switch" data-memory-view="atomic" aria-pressed="false">Atomic Structure（原子结构）</button>
+        <button id="memoryViewMaintenance" type="button" class="view-switch" data-memory-view="maintenance" aria-pressed="false">Maintenance（维护）</button>
+      </div>
+      <div class="explorer-toolbar">
+        <label class="field"><span>搜索</span><input id="memorySearch" type="search" placeholder="内容、类型或主题" maxlength="80"></label>
+        <label class="field"><span>状态</span><select id="memoryStatus"><option value="">全部状态</option><option value="active">active（活跃）</option><option value="dormant">dormant（休眠）</option><option value="expired">expired（已过期）</option><option value="superseded">superseded（已被取代）</option><option value="forgotten">forgotten（已遗忘）</option></select></label>
+        <label class="field"><span>Type Path（记忆类型）</span><select id="memoryType"><option value="">全部类型</option><optgroup label="fact（事实）"><option value="fact.preference.like">喜欢 · fact.preference.like</option><option value="fact.preference.dislike">不喜欢 · fact.preference.dislike</option><option value="fact.preference.habit">习惯 · fact.preference.habit</option><option value="fact.profile.identity">身份资料 · fact.profile.identity</option><option value="fact.profile.work_study">工作与学习 · fact.profile.work_study</option><option value="fact.profile.relationship">关系 · fact.profile.relationship</option><option value="fact.experience">经历 · fact.experience</option><option value="fact.event">事件 · fact.event</option><option value="fact.agreement">约定 · fact.agreement</option></optgroup><optgroup label="state（当前状态）"><option value="state.body.pain">疼痛 · state.body.pain</option><option value="state.body.illness">疾病 · state.body.illness</option><option value="state.body.discomfort">身体不适 · state.body.discomfort</option><option value="state.mood.low">情绪低落 · state.mood.low</option><option value="state.mood.stressed">压力状态 · state.mood.stressed</option><option value="state.mood.positive">积极情绪 · state.mood.positive</option><option value="state.sleep">睡眠状态 · state.sleep</option><option value="state.diet">饮食状态 · state.diet</option><option value="state.target.short_task">短期任务 · state.target.short_task</option><option value="state.target.ongoing_goal">持续目标 · state.target.ongoing_goal</option></optgroup><optgroup label="anchor（锚点）"><option value="anchor.identity">身份锚点 · anchor.identity</option><option value="anchor.date.birthday">生日 · anchor.date.birthday</option><option value="anchor.date.anniversary">纪念日 · anchor.date.anniversary</option><option value="anchor.permanent_preference">长期偏好 · anchor.permanent_preference</option><option value="anchor.boundary">边界 · anchor.boundary</option><option value="anchor.explicit_commitment">明确承诺 · anchor.explicit_commitment</option></optgroup><optgroup label="cognition（认知）"><option value="cognition.core.values">核心价值 · cognition.core.values</option><option value="cognition.core.principles">核心原则 · cognition.core.principles</option><option value="cognition.secondary.closeness">亲近度 · cognition.secondary.closeness</option><option value="cognition.secondary.humor">幽默方式 · cognition.secondary.humor</option><option value="cognition.secondary.communication_style">沟通风格 · cognition.secondary.communication_style</option><option value="cognition.dynamic.wording">措辞习惯 · cognition.dynamic.wording</option><option value="cognition.dynamic.current_image">当前印象 · cognition.dynamic.current_image</option><option value="cognition.dynamic.temporary_style">临时互动风格 · cognition.dynamic.temporary_style</option></optgroup><optgroup label="open_loop（未完成事项）"><option value="open_loop.promise">承诺 · open_loop.promise</option><option value="open_loop.task">任务 · open_loop.task</option><option value="open_loop.reminder">提醒 · open_loop.reminder</option><option value="open_loop.unfinished_topic">未完成话题 · open_loop.unfinished_topic</option></optgroup></select></label>
+        <label class="field"><span>Subject（主题）</span><input id="memorySubject" type="search" placeholder="按主题筛选" maxlength="100"></label>
+        <label class="field"><span>排序</span><select id="memorySort"><option value="updated_at">最近更新</option><option value="created_at">创建时间</option><option value="importance">重要度</option><option value="confidence">置信度</option><option value="id">Atom ID</option></select></label>
+        <label class="field"><span>方向</span><select id="memoryDirection"><option value="desc">降序</option><option value="asc">升序</option></select></label>
+        <button id="memoryApply" type="button">应用筛选</button>
+      </div>
+      <section class="manual-remember" aria-labelledby="manualRememberTitle">
+        <div class="manual-remember-heading"><div><p class="kicker">MANUAL REMEMBER（手动记住）</p><h3 id="manualRememberTitle">记住一条偏好</h3></div><span class="section-tag">当前身份</span></div>
+        <div class="form-grid compact">
+          <label class="field"><span>偏好类型</span><select id="memoryRememberType"><option value="fact.preference.like">喜欢</option><option value="fact.preference.dislike">不喜欢</option><option value="fact.preference.habit">习惯</option></select></label>
+          <label class="field"><span>记忆内容</span><textarea id="memoryRememberContent" maxlength="600" rows="2" placeholder="例如：喜欢猫"></textarea></label>
+          <div class="field manual-remember-submit"><button id="memoryRememberSubmit" type="button" disabled>手动记住</button></div>
+        </div>
+        <p class="hint">确认后直接写入当前选定身份的 Atomic Memory；不会修改原始聊天，也不会自动修改 Persona。</p>
+      </section>
+      <div id="memoryCompositionStrip" class="composition-strip" aria-label="Atomic composition（原子构成）"></div>
+      <div id="memoryListView" class="memory-view-panel is-active" data-memory-view-panel="list" aria-hidden="false">
+        <div id="memoryList" class="memory-list"></div>
+        <div id="memoryPager" class="memory-pager"></div>
+      </div>
+      <div id="atomicStructureView" class="memory-view-panel" data-memory-view-panel="atomic" hidden aria-hidden="true">
+        <div class="atomic-structure-heading"><div><p class="kicker">ATOMIC STRUCTURE（原子结构）</p><h3>Atomic Structure（原子结构）</h3><small>Atomic Node（原子节点）按 Subject（主题）聚合，不表示语义关系。</small></div><span class="section-tag">完整筛选结果</span></div>
+        <div id="atomicStructure" class="atomic-structure" aria-label="Atomic Structure（原子结构）">
+          <div id="atomicStructureSummary" class="structure-summary" aria-label="Atomic structure summary（原子结构摘要）"></div>
+          <div id="atomicStructureList" class="structure-list"></div>
+          <div id="atomicStructurePager" class="memory-pager"></div>
+        </div>
+      </div>
+      <div id="memoryMaintenanceView" class="memory-view-panel" data-memory-view-panel="maintenance" hidden aria-hidden="true">
+        <div class="maintenance-heading"><div><p class="kicker">MEMORY MAINTENANCE（记忆维护）</p><h3>Memory Maintenance（记忆维护）</h3><small>正常检索前会自动兑现 Hard TTL 并整理完全重复的普通偏好；此处查看整理历史与回滚。</small></div><span class="section-tag">自治维护</span></div>
+        <div class="maintenance-controls">
+          <button id="memoryMaintenanceGenerate" type="button">生成 Preview</button>
+          <button id="memoryMaintenanceApply" type="button" class="button-secondary" disabled>应用确定性变更</button>
+        </div>
+        <p class="hint">应用前会再次校验计划。操作只会将符合 TTL 的 active（活跃）Atom 标记为 expired（已过期）；不会删除 Atom 或 Evidence，并会写入 Lifecycle Event（生命周期事件）。</p>
+        <div id="memoryMaintenancePreview" class="maintenance-preview" aria-live="polite"><p class="muted">尚未生成维护 Preview。</p></div>
+        <section class="maintenance-section" aria-labelledby="maintenanceActionsTitle"><div class="maintenance-section-heading"><h4 id="maintenanceActionsTitle">Applyable Actions（可执行变更）</h4><small id="memoryMaintenanceActionCount">0</small></div><div id="memoryMaintenanceActions" class="maintenance-list"></div></section>
+        <section class="maintenance-section" aria-labelledby="maintenanceWarningsTitle"><div class="maintenance-section-heading"><h4 id="maintenanceWarningsTitle">Quality Warnings（质量提示）</h4><small id="memoryMaintenanceWarningCount">0</small></div><div id="memoryMaintenanceWarnings" class="maintenance-list"></div></section>
+        <section class="maintenance-section" aria-labelledby="memoryHealthTitle"><div class="maintenance-section-heading"><h4 id="memoryHealthTitle">Memory Health（记忆健康概览）</h4></div><div id="memoryHealthSummary" class="maintenance-summary"><p class="muted">选择身份后读取自治维护统计。</p></div></section>
+        <section class="maintenance-section" aria-labelledby="maintenanceHistoryTitle"><div class="maintenance-section-heading"><h4 id="maintenanceHistoryTitle">自治维护、冲突与质量历史</h4><button id="memoryMaintenanceHistoryRefresh" type="button" class="button-secondary">刷新历史</button></div><div id="memoryMaintenanceHistory" class="maintenance-list"><p class="muted">选择身份后读取当前 UMO 的维护、冲突与质量历史。</p></div></section>
+      </div>
+    </section>
+
+    <section class="panel workspace-page" id="profile" data-page="profile">
+      <div class="section-heading"><div><p class="kicker">DERIVED PROFILE · Profile（用户画像）</p><h2>用户画像</h2></div><span class="section-tag">Atomic 派生 · 只读</span></div>
+      <p class="hint">画像由当前身份下仍可检索的 Atomic 记忆确定性聚合，不写入新的画像表，也不会生成 LLM 总结。</p>
+      <section id="portraitDirectory" class="portrait-directory" aria-label="Portrait Directory（画像目录）">
+        <div class="profile-section-heading"><div><p class="kicker">PORTRAIT DIRECTORY（画像目录）</p><h3>Portrait Directory（画像目录）</h3></div><small>按真实 UMO identity partition（身份分区）发现</small></div>
+        <div class="portrait-directory-list"><p class="muted">正在读取 Memory-only partition（仅记忆分区）……</p></div>
+      </section>
+      <div id="profileContent" class="profile-content"></div>
+    </section>
+
+    <section class="panel workspace-page" id="persona" data-page="persona">
+      <div class="section-heading"><div><p class="kicker">PERSONA（人格）</p><h2>当前人格</h2></div><span class="section-tag">只读概览</span></div>
+      <div id="personaSummary" class="persona-summary"><p class="muted">请选择操作对象后查看当前人格分支。</p></div>
+    </section>
+
+    <section class="panel workspace-page" id="reviews-panel" data-page="cognition">
+      <div class="section-heading"><div><p class="kicker">COGNITION（认知候选）</p><h2>人格认知</h2></div><button id="refresh" type="button" class="button-secondary">刷新</button></div>
+      <p class="hint">候选会按自治档位持续观察；“提前采用”是用户主动 override，不是系统等待批准。否决表示明确拒绝当前候选。</p>
+      <div id="reviews" class="cards"></div>
+    </section>
+
+    <section class="panel workspace-page" id="versions-panel" data-page="versions">
+      <div class="section-heading"><div><p class="kicker">PERSONA GROWTH（人格成长）</p><h2>人格成长</h2></div><span class="section-tag">只读解释</span></div>
+      <p class="hint">已应用的人格增量不会改写原始 AstrBot Persona；这里依据已保存的候选、证据、版本和审计记录说明成长过程。</p>
+      <section class="growth-section" aria-labelledby="growthCurrentTitle">
+        <div class="growth-heading"><h3 id="growthCurrentTitle">当前人格增量</h3><small>原始 Persona 保持不变</small></div>
+        <div id="growthCurrentPersona" class="growth-current"><p class="muted">选择身份后读取当前已应用的人格版本。</p></div>
+      </section>
+      <section class="growth-section" aria-labelledby="growthTimelineTitle">
+        <div class="growth-heading"><h3 id="growthTimelineTitle">Growth Timeline（成长时间线）</h3><small>按已保存时间倒序</small></div>
+        <div id="growthTimeline" class="timeline"></div>
+        <div id="growthTimelinePager" class="growth-pager"></div>
+      </section>
+      <section id="personaVersionDetail" class="growth-detail" hidden aria-live="polite"></section>
+      <details class="growth-version-index"><summary>版本历史 · 浏览所有 Persona Versions（人格版本）</summary><div id="versions" class="timeline"></div></details>
+    </section>
+
+    <section class="panel workspace-page" id="system" data-page="settings">
+      <div class="section-heading"><div><p class="kicker">HEALTH（健康状态）</p><h2>系统状态</h2></div></div>
+      <div id="memoryOverview" class="overview-metrics"></div>
+      <dl class="health-list">
+        <div><dt>Plugin Page Bridge（插件页面桥接）</dt><dd id="bridgeState">正在检查</dd></div>
+        <div><dt>人格 API</dt><dd id="apiState">等待连接</dd></div>
+        <div><dt>身份分支</dt><dd id="identityState">尚未选择</dd></div>
+      </dl>
+    </section>
+    <aside id="memoryDetail" class="memory-detail atomic-lens-drawer bottom-sheet" hidden aria-live="polite"></aside>
+  </main>
+  <dialog id="actionConfirmation" class="action-confirmation" aria-labelledby="actionConfirmationTitle" aria-describedby="actionConfirmationMessage">
+    <h2 id="actionConfirmationTitle">确认操作</h2>
+    <p id="actionConfirmationMessage"></p>
+    <div class="action-confirmation-buttons">
+      <button id="actionConfirmationCancel" type="button" autofocus>取消</button>
+      <button id="actionConfirmationAccept" type="button">确认操作</button>
+    </div>
+  </dialog>
+  <script src="/api/plugin/page/bridge-sdk.js"></script>
+  <script src="./page-core.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>

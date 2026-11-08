@@ -1,0 +1,40 @@
+微光回响 v0.2.0 许可与参考说明
+
+微光回响 v0.2.0 采用 GNU Affero General Public License version 3.0（AGPL-3.0）授权。
+
+本项目使用或参考以下开源项目：
+
+- LivingMemory
+  - 作者：lxfight
+  - 代码改编基线版本：2.3.4
+  - 仓库：https://github.com/lxfight-s-Astrbot-Plugins/astrbot_plugin_livingmemory
+  - 许可：AGPL-3.0
+- Memory Companion
+  - 作者：menglimi
+  - 本地参考版本：1.9.1
+  - 仓库：https://github.com/menglimi/astrbot_plugin_memory_companion
+  - 使用方式：仅作迁移范式设计参考，未直接复制源码
+
+原子底座历史检查点（已纳入 v0.1.0）包含以下文件级改编：
+
+- lumielle_echo/atomic_models.py
+  - 来源：LivingMemory 2.3.4 `core/models/memory_atom.py`
+  - 原作者：lxfight
+  - 许可：AGPL-3.0
+  - 修改：加入微光回响现有语义类型映射、cognition 原子类型、无衰减类型、
+    五态生命周期、UMO 作用域字段，并按现有 taxonomy 处理 TTL 覆盖。
+- lumielle_echo/atomic_store.py
+  - 来源参考：LivingMemory 2.3.4 `storage/atom_store.py`
+  - 原作者：lxfight
+  - 许可：AGPL-3.0
+  - 修改：改为标准库 sqlite3 和微光回响同库 Repository；重新设计 UMO 作用域、
+    证据、向量、图谱、生命周期、FTS5 与迁移 Schema；未复制其事件入口、
+    Faiss 适配、调度器或清理逻辑。
+
+Memory Companion 1.9.1 的 epoch/outbox/revision/tombstone 仅作为架构思想参考。
+当前本地参考副本未发现许可证文件，因此微光回响未直接复制其源码，相关 Schema
+和只读迁移预览均为独立实现。
+
+LivingMemory 2.3.4 是上述文件级改编的历史基线；后续设计研究另参考
+LivingMemory 2.6.0-beta.3 快照，两者不是同一版本。研究快照、其余上游源码、
+私人资料和历史运行数据均不随微光回响运行包或公共源码候选分发。
