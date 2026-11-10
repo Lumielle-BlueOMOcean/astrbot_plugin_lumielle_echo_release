@@ -5,12 +5,13 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Callable
 from dataclasses import replace
-import logging
 from pathlib import Path
 import sqlite3
 import time
 from typing import Any
 import uuid
+
+from astrbot.api import logger
 
 from .analyzer import SemanticAnalyzer
 from .atomic_retrieval import (
@@ -66,9 +67,6 @@ from .write_router import ProductionWriteCoordinator, WriteMode, required_result
 from .store import MemoryStore, StoredMemory
 from .models import MAX_SOURCE_REFERENCE_CHARS, MemoryAction, SourceMessageReference
 from .validator import ActionValidator
-
-
-logger = logging.getLogger(__name__)
 
 
 class MemoryService:

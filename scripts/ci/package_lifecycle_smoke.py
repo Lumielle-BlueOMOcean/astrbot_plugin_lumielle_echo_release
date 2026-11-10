@@ -11,8 +11,54 @@ import os
 from pathlib import Path
 import stat
 import sys
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 from typing import Any
+
+
+def install_offline_astrbot(log=None) -> None:
+    """Install test-only host doubles; this helper is excluded from runtime ZIPs."""
+    from unittest.mock import Mock
+
+    def decorator(*_args, **_kwargs):
+        return lambda func: func
+
+    class CommandGroup:
+        command = staticmethod(decorator)
+
+    def command_group(*_args, **_kwargs):
+        return lambda _func: CommandGroup()
+
+    def llm_tool(func=None, **_kwargs):
+        return func if callable(func) else lambda target: target
+
+    class TextPart:
+        def __init__(self, *, text):
+            self.text = text
+
+        def mark_as_temp(self):
+            return self
+
+    names = (
+        "astrbot", "astrbot.api", "astrbot.api.event", "astrbot.api.provider",
+        "astrbot.api.star", "astrbot.core", "astrbot.core.agent",
+        "astrbot.core.agent.message",
+    )
+    modules = {name: ModuleType(name) for name in names}
+    modules["astrbot.api"].logger = log if log is not None else Mock(name="astrbot.api.logger")
+    modules["astrbot.api.event"].AstrMessageEvent = object
+    modules["astrbot.api.event"].filter = SimpleNamespace(
+        PermissionType=SimpleNamespace(ADMIN="admin", MEMBER="member"),
+        on_llm_request=decorator, llm_tool=llm_tool,
+        command_group=command_group, command=decorator, permission_type=decorator,
+    )
+    modules["astrbot.api.provider"].ProviderRequest = object
+    modules["astrbot.api.provider"].ProviderType = None
+    modules["astrbot.api.star"].Context = object
+    modules["astrbot.api.star"].Star = object
+    modules["astrbot.api.star"].StarTools = None
+    modules["astrbot.api.star"].register = decorator
+    modules["astrbot.core.agent.message"].TextPart = TextPart
+    sys.modules.update(modules)
 
 
 _CONFIG = {
@@ -85,6 +131,8 @@ def _identity(module, user_id: str, session_id: str):
 
 def _new_plugin(package_root: Path, data_root: Path):
     sys.dont_write_bytecode = True
+    if "astrbot.api" not in sys.modules:
+        install_offline_astrbot()
     package_text = str(package_root.resolve())
     if package_text not in sys.path:
         sys.path.insert(0, package_text)

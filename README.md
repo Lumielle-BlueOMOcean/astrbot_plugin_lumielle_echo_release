@@ -7,7 +7,7 @@
 <p align="center">让 AstrBot Bot 在长期交互中形成记忆、自我认知与可受控演化的人格</p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.2.0-7c5ac7" alt="Version 0.2.0">
+  <img src="https://img.shields.io/badge/version-0.2.1-7c5ac7" alt="Version 0.2.1">
   <a href="https://github.com/AstrBotDevs/AstrBot"><img src="https://img.shields.io/badge/AstrBot-%3E%3D4.22.0-4b8bbe" alt="AstrBot >= 4.22.0"></a>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-5c5c5c" alt="AGPL-3.0"></a>
 </p>
@@ -307,7 +307,7 @@ https://github.com/Lumielle-BlueOMOcean/astrbot_plugin_lumielle_echo_release
 
 ### 从 ZIP 安装
 
-从本仓库 [v0.2.0 Release](https://github.com/Lumielle-BlueOMOcean/astrbot_plugin_lumielle_echo_release/releases/tag/v0.2.0) 下载 `lumielle_echo-0.2.0.zip`，核对同一 Release 的 `SHA256SUMS`，然后在 AstrBot 插件管理中上传安装。`lumielle_echo-0.2.0-source.zip` 是源码归档；通常安装请选择运行 ZIP。
+从本仓库 [v0.2.1 Release](https://github.com/Lumielle-BlueOMOcean/astrbot_plugin_lumielle_echo_release/releases/tag/v0.2.1) 下载 `lumielle_echo-0.2.1.zip`，核对同一 Release 的 `SHA256SUMS`，然后在 AstrBot 插件管理中上传安装。`lumielle_echo-0.2.1-source.zip` 是源码归档；通常安装请选择运行 ZIP。
 
 插件身份为 `lumielle_echo`。仓库安装和 ZIP 安装只选一种，避免同时加载同一插件的两份代码。插件本身没有额外 Python 依赖；Chat 与 Embedding Provider 使用 AstrBot 的配置。
 
@@ -367,6 +367,8 @@ Angel migration、calibration、reconciliation、reatomization、overlay readine
 
 ## 数据、安全与兼容边界
 
+当前公开运行路径只从 Codex CLI 适配器复用历史分析的输出 schema，没有执行器的实例化或调用入口。普通安装与默认配置不会启动外部 Codex CLI，也不需要 Codex 认证。
+
 - Atomic、Evidence 和 Persona references 严格绑定 <code>scope_key + umo_id</code>，不从内容推断身份。
 - Atomic authoritative transaction 先提交，Embedding 只是 derived index（派生索引）；Provider 不可用、超时或向量无效不会回滚已提交的 Atom、Evidence 或 Persona 变化。
 - Evidence 保留来源、事件和观察上下文，跨身份的同文内容不会合并。
@@ -404,7 +406,15 @@ python -c "from scripts.ci.fresh_install_smoke import run_candidate_package_smok
 
 ## 版本与更新日志
 
-版本使用三段式 <code>MAJOR.MINOR.PATCH</code>：PATCH 用于不增加主要产品能力的向后兼容修复；MINOR 用于向后兼容的新能力、产品闭环或显著功能扩展；MAJOR 用于重大兼容边界变化或新的稳定产品代际。本仓库版本为 <code>0.2.0</code>；实际发行时间以 GitHub Release 为准。
+版本使用三段式 <code>MAJOR.MINOR.PATCH</code>：PATCH 用于不增加主要产品能力的向后兼容修复；MINOR 用于向后兼容的新能力、产品闭环或显著功能扩展；MAJOR 用于重大兼容边界变化或新的稳定产品代际。本仓库版本为 <code>0.2.1</code>；实际发行时间以 GitHub Release 为准。
+
+### 0.2.1
+
+#### 修复
+
+- 入口、记忆服务、Atomic 写入与记忆质量模块统一使用 `astrbot.api.logger`，移除内置 logging 和入口日志回退，修复 AstrBot Cloud 日志合规问题。
+- 离线宿主替身移至 CI/测试脚本，不随运行安装包分发；保留无 Provider 的离线生命周期验证。
+- 修复版本递增至 `0.2.1`，同步入口、元数据、NOTICE 和完整更新日志，供新版本重新审核；不覆盖已发布的 `v0.2.0`。
 
 ### 0.2.0
 

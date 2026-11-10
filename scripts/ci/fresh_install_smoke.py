@@ -74,7 +74,7 @@ def run_candidate_package_smoke(root: str | Path) -> dict[str, object]:
 
 def run_smoke(root: str | Path) -> None:
     root_path = Path(root).resolve()
-    command = [sys.executable, "-m", "unittest", *TESTS]
+    command = [sys.executable, "run_tests.py", *TESTS]
     completed = subprocess.run(command, cwd=root_path, check=False)
     if completed.returncode:
         raise SystemExit(completed.returncode)

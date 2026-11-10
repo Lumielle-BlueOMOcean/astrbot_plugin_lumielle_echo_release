@@ -7,8 +7,9 @@ Shadow 是 Legacy 成功后的旁路实验能力；Required writer 则在外层�
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-import logging
-from typing import Iterable
+from typing import Any, Iterable
+
+from astrbot.api import logger
 
 from .atomizer import AtomicWritePlan, atomize_action
 from .atomic_models import AtomicMemory
@@ -16,9 +17,6 @@ from .atomic_store import AtomicRepository
 from .identity import UmoIdentity
 from .models import MemoryAction
 from .store import StoredMemory
-
-
-logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,7 +64,7 @@ class AtomicShadowWriter:
         *,
         enabled: bool = False,
         write_role: str = "shadow",
-        log: logging.Logger | None = None,
+        log: Any | None = None,
     ) -> None:
         self.repository = repository
         self.enabled = bool(enabled)
@@ -407,7 +405,7 @@ class AtomicShadowWriter:
 class AtomicRequiredWriter(AtomicShadowWriter):
     """在调用方外层事务内执行失败即回滚的 Required Atomic 写入。"""
 
-    def __init__(self, repository: AtomicRepository, *, log: logging.Logger | None = None) -> None:
+    def __init__(self, repository: AtomicRepository, *, log: Any | None = None) -> None:
         super().__init__(repository, enabled=True, write_role="atomic_required_legacy_mirror", log=log)
 
     def write(

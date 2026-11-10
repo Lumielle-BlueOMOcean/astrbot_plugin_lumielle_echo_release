@@ -6,10 +6,15 @@ from pathlib import Path
 import asyncio
 from dataclasses import asdict
 import json
-import logging
 import re
 import sqlite3
 import unicodedata
+
+from astrbot.api import logger
+from astrbot.api.event import AstrMessageEvent, filter
+from astrbot.api.provider import ProviderRequest, ProviderType
+from astrbot.api.star import Context, Star, StarTools, register
+from astrbot.core.agent.message import TextPart
 
 if __package__:
     from .lumielle_echo.evolution import CandidateRevisionStaleError
@@ -81,71 +86,6 @@ EMBEDDING_LATE_BIND_MAX_ATTEMPTS = 10
 _MEMORY_CONTROL_EVENT_ATTR = "_lumielle_echo_memory_control"
 _IDENTITY_EVENT_ATTR = "_lumielle_echo_frozen_identity"
 
-try:
-    from astrbot.api import logger
-    from astrbot.api.event import AstrMessageEvent, filter
-    from astrbot.api.provider import ProviderRequest, ProviderType
-    from astrbot.api.star import Context, Star, StarTools, register
-    from astrbot.core.agent.message import TextPart
-except ModuleNotFoundError as exc:  # 允许在未安装 AstrBot 的环境运行测试。
-    if exc.name != "astrbot":
-        raise
-    logger = logging.getLogger("lumielle_echo")
-    Context = object
-    Star = object
-    StarTools = None
-
-    def register(*_args, **_kwargs):
-        return lambda cls: cls
-
-    class _PermissionType:
-        ADMIN = "admin"
-        MEMBER = "member"
-
-    class _CommandGroupStub:
-        def command(self, *_args, **_kwargs):
-            return lambda func: func
-
-    class _Filter:
-        PermissionType = _PermissionType
-
-        @staticmethod
-        def on_llm_request(**_kwargs):
-            return lambda func: func
-
-        @staticmethod
-        def llm_tool(func=None, **_kwargs):
-            if callable(func):
-                return func
-            return lambda target: target
-
-        @staticmethod
-        def command_group(*_args, **_kwargs):
-            def decorator(_func):
-                return _CommandGroupStub()
-            return decorator
-
-        @staticmethod
-        def command(*_args, **_kwargs):
-            return lambda func: func
-
-        @staticmethod
-        def permission_type(*_args, **_kwargs):
-            return lambda func: func
-
-    filter = _Filter()
-    AstrMessageEvent = object
-    ProviderRequest = object
-    ProviderType = None
-
-    class TextPart:
-        def __init__(self, *, text: str):
-            self.text = text
-
-        def mark_as_temp(self):
-            return self
-
-
 def _provider_type_value(provider):
     """读取 AstrBot 官方 ProviderMeta 类型；未知类型留给离线 fake 兼容。"""
 
@@ -175,7 +115,7 @@ def _provider_matches_type(provider, expected):
     return actual == expected_value or str(actual) == str(expected_value)
 
 
-@register(PLUGIN_ID, "Lumielle", "微光回响：Atomic 长期记忆与受控人格演化", "0.2.0")
+@register(PLUGIN_ID, "Lumielle", "微光回响：Atomic 长期记忆与受控人格演化", "0.2.1")
 class LumielleEchoPlugin(Star):
     def __init__(self, context: Context | None = None, config: dict | None = None):
         if Star is not object:

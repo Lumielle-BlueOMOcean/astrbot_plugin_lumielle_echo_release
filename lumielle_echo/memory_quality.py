@@ -6,12 +6,13 @@ import asyncio
 from datetime import datetime, timezone
 import hashlib
 import json
-import logging
 import math
 import re
 import sqlite3
 import unicodedata
 from typing import Any
+
+from astrbot.api import logger
 
 from .atomic_models import AtomStatus, is_retrieval_eligible, lifecycle_policy, LifecyclePolicy
 from .atomic_store import AtomicRepository
@@ -19,7 +20,6 @@ from .identity import UmoIdentity
 from .taxonomy import POLICIES
 
 
-logger = logging.getLogger(__name__)
 MAX_QUALITY_GROUPS_PER_PASS = 8
 MAX_QUALITY_WINDOW = 120
 MAX_QUALITY_PEERS_PER_ATOM = 2

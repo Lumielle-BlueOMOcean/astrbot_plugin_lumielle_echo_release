@@ -1,6 +1,6 @@
 name: lumielle_echo
 display_name: 微光回响
-version: 0.2.0
+version: 0.2.1
 short_desc: 长期记忆、自我认知与受控人格演化
 desc: 面向 AstrBot 的长期记忆、自我认知与受控 Persona Evolution 插件，提供 Atomic Memory、Evidence、Lifecycle、Embedding、多 UMO 隔离、Atomic-only 检索、认知审核、Persona Version 与 Rollback。
 author: Lumielle
