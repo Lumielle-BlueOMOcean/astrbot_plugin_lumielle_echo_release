@@ -1357,6 +1357,7 @@ class EvolutionStore:
     def invalidate_atomic_evidence_for_rollback(
         self, identity: UmoIdentity, *, rollback_version_id: int,
         candidate_ids: Iterable[int], reason: str,
+        evidence_ids: Iterable[int] | None = None,
     ) -> int:
         self._require_atomic_schema_ready()
         rollback = self.get_version(identity, rollback_version_id)
@@ -1370,6 +1371,13 @@ class EvolutionStore:
         ).fetchall()
         if {int(row["id"]) for row in candidate_rows} != set(ids):
             raise ValueError("atomic_reference_scope_mismatch")
+        evidence_filter = ""
+        evidence_params: tuple[int, ...] = ()
+        if evidence_ids is not None:
+            evidence_params = tuple(dict.fromkeys(int(item) for item in evidence_ids))
+            if not evidence_params:
+                return 0
+            evidence_filter = f" AND e.id IN ({','.join('?' for _ in evidence_params)})"
         rows = self.conn.execute(
             f"""SELECT e.id,e.candidate_id,e.atom_id,e.atom_scope_key,e.atom_umo_id,
                        a.id AS bound_atom_id
@@ -1382,8 +1390,9 @@ class EvolutionStore:
                 WHERE e.candidate_id IN ({marks})
                   AND c.evolution_scope_key=?
                   AND e.invalidated_by_rollback IS NULL
+                  {evidence_filter}
                 ORDER BY e.id""",
-            (*ids, rollback.evolution_scope_key),
+            (*ids, rollback.evolution_scope_key, *evidence_params),
         ).fetchall()
         if any(row["bound_atom_id"] is None for row in rows):
             raise ValueError("atomic_reference_identity_mismatch")
@@ -1508,6 +1517,85 @@ class EvolutionStore:
         if owner.scope_key != version.owner_memory_scope_key:
             raise ValueError(f"人格版本 owner memory scope 损坏：{version_id}")
         return owner
+
+    def resolve_version_slot_source(
+        self, identity: UmoIdentity, version_id: int, *, layer: str,
+        subject_key: str, scope_mode: str | None = None,
+    ) -> tuple[PersonaVersion, CognitionCandidate] | None:
+        """沿实际版本继承和恢复链读取槽位来源，不按相同文案猜测。
+
+        明确恢复的快照可以引用已经失效的历史候选；这只证明快照来源，
+        不恢复该候选及其证据的有效状态。
+        """
+
+        current = self.get_version(identity, version_id, scope_mode=scope_mode)
+        expected_scope = current.evolution_scope_key
+
+        def entry(version: PersonaVersion) -> Any:
+            entries = version.layers.get(layer, {})
+            return entries.get(subject_key) if isinstance(entries, dict) else None
+
+        expected = entry(current)
+        if not isinstance(expected, dict) or not isinstance(expected.get("content"), str):
+            return None
+        restored = False
+        seen: set[int] = set()
+        while current.id not in seen:
+            if current.evolution_scope_key != expected_scope or entry(current) != expected:
+                return None
+            seen.add(current.id)
+            if current.rollback_of_version_id is not None:
+                next_id = current.rollback_of_version_id
+                restored = True
+            else:
+                if not isinstance(current.diff, dict):
+                    return None
+                trigger = None
+                if current.trigger_candidate_id is not None:
+                    try:
+                        trigger = self.get_candidate(
+                            identity, current.trigger_candidate_id, scope_mode=scope_mode,
+                        )
+                    except (KeyError, ValueError):
+                        return None
+                if subject_key in current.diff:
+                    change = current.diff[subject_key]
+                    trigger_parts = [] if trigger is None else trigger.type_path.split(".")
+                    trigger_layer = trigger_parts[1] if len(trigger_parts) > 1 else ""
+                    restored_source = (
+                        restored and trigger is not None
+                        and trigger.status == "invalidated"
+                        and trigger.invalidated_by_rollback is not None
+                    )
+                    if (
+                        not isinstance(change, dict)
+                        or change.get("layer") != layer
+                        or change.get("after") != expected
+                        or trigger is None
+                        or trigger_layer != layer
+                        or trigger.subject_key != subject_key
+                        or _candidate_content_key(trigger.content)
+                        != _candidate_content_key(expected["content"])
+                        or (not restored_source and (
+                            trigger.status != "applied"
+                            or trigger.invalidated_by_rollback is not None
+                        ))
+                    ):
+                        return None
+                    return current, trigger
+                if (
+                    trigger is not None and trigger.subject_key == subject_key
+                    and trigger.type_path.startswith(f"cognition.{layer}.")
+                ):
+                    return None
+                next_id = current.parent_version_id
+            if next_id is None:
+                return None
+            try:
+                current = self.get_version(identity, next_id, scope_mode=scope_mode)
+            except (KeyError, ValueError):
+                return None
+        return None
 
     def get_active_version(self, identity: UmoIdentity, *, scope_mode: str | None = None) -> PersonaVersion | None:
         row = self.conn.execute("SELECT * FROM persona_versions WHERE evolution_scope_key=? AND status='active'", (self._key(identity, scope_mode),)).fetchone()
@@ -1670,7 +1758,7 @@ class EvolutionStore:
                 for row in evidence_rows:
                     self.conn.execute("INSERT OR IGNORE INTO cognition_memory_invalidations(evolution_scope_key,memory_id,rollback_version_id,reason) VALUES(?,?,?,?)", (key, int(row["memory_id"]), rollback.id, str(reason)))
             if self._atomic_schema_ready():
-                atomic_sql = """SELECT DISTINCT e.candidate_id
+                atomic_sql = """SELECT e.id,e.candidate_id
                     FROM cognition_evidence_atomic AS e
                     JOIN cognition_candidates AS c ON c.id=e.candidate_id
                     WHERE c.evolution_scope_key=? AND e.invalidated_by_rollback IS NULL
@@ -1688,6 +1776,7 @@ class EvolutionStore:
                     rollback_version_id=rollback.id,
                     candidate_ids=(int(row["candidate_id"]) for row in atomic_candidate_rows),
                     reason=str(reason),
+                    evidence_ids=(int(row["id"]) for row in atomic_candidate_rows),
                 )
             for dimension in dimensions:
                 self.set_cooldown(

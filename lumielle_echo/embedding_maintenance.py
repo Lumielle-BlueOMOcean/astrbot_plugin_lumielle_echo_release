@@ -13,6 +13,7 @@ import json
 import math
 from typing import Any, Callable, Iterable
 
+from .atomic_models import AtomicMemory
 from .atomic_store import AtomicRepository, atomic_content_hash
 from .embeddings import EmbeddingAdapter
 
@@ -170,9 +171,11 @@ class EmbeddingMaintenanceManager:
         provider_id: str,
         model_name: str,
         expected_dimension: int | None,
+        atoms: list[AtomicMemory] | None = None,
     ) -> dict[str, Any]:
-        atoms = self.repository.list_embedding_maintenance_atoms()
-        atom_total = self.repository.count_atoms()
+        atom_total = len(atoms) if atoms is not None else self.repository.count_atoms()
+        if atoms is None:
+            atoms = self.repository.list_embedding_maintenance_atoms()
         atom_by_id = {int(atom.id): atom for atom in atoms}
         rows = self.repository.list_embedding_rows_for_maintenance(atom_ids=atom_by_id.keys())
         by_atom: dict[int, list[dict[str, Any]]] = defaultdict(list)
@@ -359,17 +362,18 @@ class EmbeddingMaintenanceManager:
                     skipped=len(requested_ids), reason="provider_identity_unavailable",
                 )
 
+            atoms = self.repository.list_embedding_maintenance_atoms(atom_ids=requested_ids)
             report = self._inspect(
                 provider=provider,
                 provider_id=provider_id,
                 model_name=model_name,
                 expected_dimension=expected_dimension,
+                atoms=atoms,
             )
             classifications = report.get("classifications") or {}
             eligible_atoms = {
                 int(atom.id): atom
-                for atom in self.repository.list_embedding_maintenance_atoms()
-                if int(atom.id) in requested_ids
+                for atom in atoms
             }
             boundary_ids = [
                 atom_id for atom_id in requested_ids

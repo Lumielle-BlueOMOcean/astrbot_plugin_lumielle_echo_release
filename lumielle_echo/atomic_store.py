@@ -1819,19 +1819,23 @@ class AtomicRepository:
         return eligible if limit is None else eligible[: max(0, int(limit))]
 
     def list_embedding_maintenance_atoms(
-        self, *, now: str | None = None
+        self, *, now: str | None = None, atom_ids: Iterable[int] | None = None,
     ) -> list[AtomicMemory]:
-        """返回全库当前可进入 Retrieval 的 Atom；仅供维护面使用。
+        """返回当前可进入 Retrieval 的 Atom；仅供维护面使用。
 
         该接口刻意不接收 ``UmoIdentity``，避免 ADMIN 维护误用单一身份的
-        Retrieval 查询；返回值仍保留每个 Atom 自身的 scope/UMO 边界。
+        Retrieval 查询；线上写入可按明确的 atom_ids 限定读取，默认仍扫描
+        全库。返回值保留每个 Atom 自身的 scope/UMO 边界。
         """
 
-        rows = self.conn.execute(
-            "SELECT * FROM memory_atoms "
-            "WHERE status='active' "
-            "ORDER BY id",
-        ).fetchall()
+        params: tuple[int, ...] = ()
+        sql = "SELECT * FROM memory_atoms WHERE status='active'"
+        if atom_ids is not None:
+            params = tuple(sorted({int(atom_id) for atom_id in atom_ids}))
+            if not params:
+                return []
+            sql += " AND id IN (" + ",".join("?" for _ in params) + ")"
+        rows = self.conn.execute(sql + " ORDER BY id", params).fetchall()
         current = _parse_store_time(now or self._iso())
         return [
             _atomic_memory_from_row(row) for row in rows

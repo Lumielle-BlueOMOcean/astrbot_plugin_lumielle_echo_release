@@ -17,6 +17,7 @@ from astrbot.api import logger
 from .atomic_models import AtomStatus, is_retrieval_eligible, lifecycle_policy, LifecyclePolicy
 from .atomic_store import AtomicRepository
 from .identity import UmoIdentity
+from .memory_conflict import STRUCTURAL_SUBJECT_TOKENS
 from .taxonomy import POLICIES
 
 
@@ -24,7 +25,7 @@ MAX_QUALITY_GROUPS_PER_PASS = 8
 MAX_QUALITY_WINDOW = 120
 MAX_QUALITY_PEERS_PER_ATOM = 2
 MIN_DESTRUCTIVE_CONFIDENCE = 0.80
-QUALITY_STOP_TOKENS = frozenset({
+QUALITY_STOP_TOKENS = STRUCTURAL_SUBJECT_TOKENS | frozenset({
     "喜欢", "现在", "目前", "这个", "那个", "我的", "觉得", "正在",
     "希望", "用户", "自己", "长期", "可能", "比较", "有点", "一个",
 })

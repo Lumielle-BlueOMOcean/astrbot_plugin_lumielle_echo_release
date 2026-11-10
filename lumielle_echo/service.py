@@ -1622,7 +1622,9 @@ class MemoryService:
             self._merge_native_embedding_result(
                 self.last_production_write_result, embedding_result,
             )
-            if atomic_target_mode:
+            if atomic_target_mode and any(
+                result.disposition != "idempotent" for result in native_write_results
+            ):
                 await self._reconcile_runtime_conflicts(identity, provider)
             return []
         elif atomic_mirror_mode:
@@ -1674,7 +1676,7 @@ class MemoryService:
             )
             if vector:
                 self.store.set_embedding(identity, memory.id, vector)
-        if atomic_target_mode:
+        if atomic_target_mode and write_items:
             await self._reconcile_runtime_conflicts(identity, provider)
         return saved
 

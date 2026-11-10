@@ -62,6 +62,36 @@
   let selectionGeneration = 0;
   const selectionRequestGenerations = new Map();
   let selectedIdentityToken = '';
+  let lastSettings = null;
+  let lastSettingsSelection = null;
+  let globalSettings = null;
+
+  function settingsFormValues() {
+    return $('#settingsScope').value === 'identity'
+      ? lastSettings : globalSettings;
+  }
+
+  function renderSettingsForm() {
+    const identityScope = $('#settingsScope').value === 'identity';
+    const current = identityScope
+      ? selectionIsCurrent(lastSettingsSelection) : Boolean(globalSettings);
+    $('#save').disabled = !current;
+    $('#resetSettingsInheritance').disabled = true;
+    if (!current) return;
+    const values = settingsFormValues();
+    if (!values) return;
+    const route = document.querySelector(`input[name=route][value="${values.scope_mode}"]`);
+    if (route) route.checked = true;
+    $('#mode').value = values.autonomy_profile || 'balanced';
+    $('#plasticity').value = values.plasticity;
+    $('#plasticityValue').value = values.plasticity;
+    const overrides = Object.keys(lastSettings?.identity_overrides || {});
+    const labels = { scope_mode: '人格路线', autonomy_profile: '自治档位', plasticity: '可塑性', confirmation_timeout_hours: '旧确认超时', cooldown_hours: '冷却时长', cooldown_sessions: '冷却会话数' };
+    $('#settingsInheritance').textContent = identityScope
+      ? (overrides.length ? `当前用户已覆盖：${overrides.map(key => labels[key] || key).join('、')}。未修改的字段保持继承；全局人格路线的门槛统一使用全局值。` : '当前用户全部继承全局默认；只保存实际修改的字段。')
+      : '正在编辑全局默认；当前用户的独立覆盖不会被写入全局。';
+    $('#resetSettingsInheritance').disabled = !identityScope || !selectedIdentityToken || !overrides.length;
+  }
   let selectedPartitionToken = '';
   let growthTimelinePage = 1;
   let openGrowthVersionId = null;
@@ -420,6 +450,11 @@
       lastStructurePayload = null;
       lastStructureFilterKey = '';
       currentProfilePayload = null;
+      lastSettings = null;
+      lastSettingsSelection = null;
+      $('#save').disabled = true;
+      $('#resetSettingsInheritance').disabled = true;
+      $('#settingsInheritance').textContent = '正在读取当前操作对象的设置，请稍候。';
       selectedIdentityToken = nextIdentity;
       selectedPartitionToken = nextPartition;
       $('#identity').value = selectedIdentityToken;
@@ -436,6 +471,7 @@
       $('#identitySummary').textContent = partitionOnly ? '仅 Atomic 记忆分区' : '正在切换身份';
       renderState('#personaSummary', partitionOnly ? 'empty' : 'loading',
         partitionOnly ? '当前记忆分区未关联可操作的人格身份。' : '正在读取当前身份人格……');
+      renderSettingsForm();
       return;
     }
     selectedIdentityToken = nextIdentity;
@@ -1263,6 +1299,9 @@
       `<option value="${text(branch.identity_token)}">${text(branch.label)}</option>`
     ).join('');
     setSelection(settings.identity_token, selectedPartitionToken);
+    lastSettings = settings;
+    lastSettingsSelection = selectionSnapshot();
+    globalSettings = settings.global_settings || settings;
     if (previousIdentityToken !== selectedIdentityToken && lastMaintenancePreview) {
       clearMaintenancePreview('操作对象已变化，请重新生成 Preview。');
     }
@@ -1271,13 +1310,7 @@
       clearMaintenanceHistory();
     }
     $('#identity').value = selectedIdentityToken;
-    const route = document.querySelector(`input[name=route][value="${settings.scope_mode}"]`);
-    if (route) route.checked = true;
-    if (settings.autonomy_profile) $('#mode').value = settings.autonomy_profile;
-    if (settings.plasticity !== undefined) {
-      $('#plasticity').value = settings.plasticity;
-      $('#plasticityValue').value = settings.plasticity;
-    }
+    renderSettingsForm();
     const identity = settings.identity;
     $('#scopeContext').textContent = settings.identity_available && identity
       ? `当前分支：${identity.bot_id} / ${identity.persona_name} / ${settings.scope_mode === 'global_persona' ? '全部用户' : identity.user_id}`
@@ -1580,6 +1613,7 @@
   }
 
   function bind() {
+    $('#settingsScope').onchange = renderSettingsForm;
     $('#plasticity').oninput = event => { $('#plasticityValue').value = event.target.value; };
     $('#identity').onchange = event => {
       setSelection(event.target.value, '');
@@ -1757,24 +1791,54 @@
     $('#save').onclick = async () => {
       const requestSelection = selectionSnapshot();
       const settingsScope = $('#settingsScope').value;
+      if (settingsScope === 'identity' && !selectionIsCurrent(lastSettingsSelection)) return;
       if (settingsScope === 'identity' && !requestSelection.identityToken) {
         notice('保存用户覆盖前，请先选择操作对象', 'error');
+        return;
+      }
+      const values = settingsFormValues();
+      if (!values) return;
+      const form = {
+        scope_mode: document.querySelector('input[name=route]:checked').value,
+        autonomy_profile: $('#mode').value,
+        plasticity: Number($('#plasticity').value),
+      };
+      const patch = Object.fromEntries(Object.entries(form).filter(([key, value]) => value !== values[key]));
+      if (!Object.keys(patch).length) {
+        notice('设置没有变化');
         return;
       }
       try {
         await post(ENDPOINTS.settings, {
           identity_token: requestSelection.identityToken,
           settings_scope: settingsScope,
-          scope_mode: document.querySelector('input[name=route]:checked').value,
-          autonomy_profile: $('#mode').value,
-          plasticity: Number($('#plasticity').value),
+          ...patch,
         }, requestSelection);
         if (!selectionIsCurrent(requestSelection)) return;
+        if (settingsScope === 'global') globalSettings = { ...globalSettings, ...patch };
         notice('设置已保存');
         await load(requestSelection);
       } catch (error) {
         if (!selectionIsCurrent(requestSelection)) return;
         reportError(error);
+      }
+    };
+    $('#resetSettingsInheritance').onclick = async () => {
+      const requestSelection = selectionSnapshot();
+      if (!selectionIsCurrent(lastSettingsSelection)) return;
+      if ($('#settingsScope').value !== 'identity' || !requestSelection.identityToken) return;
+      const fields = Object.keys(lastSettings?.identity_overrides || {});
+      if (!fields.length) return;
+      try {
+        await post(ENDPOINTS.settings, {
+          identity_token: requestSelection.identityToken, settings_scope: 'identity',
+          ...Object.fromEntries(fields.map(key => [key, null])),
+        }, requestSelection);
+        if (!selectionIsCurrent(requestSelection)) return;
+        notice('当前用户已恢复继承全局默认');
+        await load(requestSelection);
+      } catch (error) {
+        if (selectionIsCurrent(requestSelection)) reportError(error);
       }
     };
     document.addEventListener('click', async event => {

@@ -109,16 +109,24 @@ def _failure(code: str, message: str) -> ResolvedPersona:
 
 
 async def _write_back(config: Any, persona_name: str) -> tuple[bool, str]:
+    missing = object()
+    previous = config.get("persona_name", missing)
+    if previous is not missing and str(previous or "") == persona_name:
+        return True, ""
+    saver = getattr(config, "save_config", None)
+    if not callable(saver):
+        return False, "人格名称未保存：配置对象不支持持久化"
     try:
         config["persona_name"] = persona_name
     except Exception as exc:
         return False, f"人格名称回写失败：{exc}"
-    saver = getattr(config, "save_config", None)
-    if not callable(saver):
-        return False, "人格名称已在当前进程更新，但配置对象不支持持久化"
     try:
         await _await_if_needed(saver())
     except Exception as exc:
+        if previous is missing:
+            config.pop("persona_name", None)
+        else:
+            config["persona_name"] = previous
         return False, f"人格名称持久化失败：{exc}"
     return True, ""
 
@@ -151,6 +159,8 @@ async def resolve_persona(
                 provider_settings=dict(_provider_settings(context, umo)),
             ))
             selected_id, official_persona, forced_id, webchat_default = result
+            if selected_id == "[%None]":
+                return ResolvedPersona(name="[%None]", source="disabled")
             name, prompt = _persona_values(official_persona)
             if not name and selected_id:
                 official_persona = await _find_named(manager, str(selected_id))
@@ -170,6 +180,9 @@ async def resolve_persona(
                 "official_resolution_failed",
                 f"AstrBot 官方人格解析失败：{exc}",
             )
+
+    if requested == "[%None]" and not callable(official):
+        return ResolvedPersona(name="[%None]", source="disabled")
 
     if requested:
         selected = selected or await _find_named(manager, requested)

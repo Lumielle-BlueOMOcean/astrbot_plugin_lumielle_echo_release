@@ -38,6 +38,9 @@ PUBLIC_SOURCE_ROOT_FILES = frozenset({
 })
 PUBLIC_SOURCE_ROOTS = frozenset({"lumielle_echo", "pages", "scripts/ci"})
 PUBLIC_SOURCE_SUFFIXES = frozenset({".py", ".js", ".css", ".html"})
+# Known private tools are retained in development but never selected for
+# publication. Runtime import validation still refuses dependencies on them.
+PRIVATE_SOURCE_FILES = frozenset({"lumielle_echo/codex_executor.py"})
 # These are reviewed paths, not directory-wide grants. New modules stay denied
 # until a reviewer adds their exact path here. angel_migration.py now contains
 # generic types and an explicit protected-profile loader, not a personal registry.
@@ -64,7 +67,7 @@ PUBLIC_SOURCE_FILES = PUBLIC_SOURCE_ROOT_FILES | frozenset({
     "lumielle_echo/atomic_targeting.py",
     "lumielle_echo/atomizer.py",
     "lumielle_echo/classifier.py",
-    "lumielle_echo/codex_executor.py",
+    "lumielle_echo/stage_schemas.py",
     "lumielle_echo/codex_smoke.py",
     "lumielle_echo/codex_stage1_ab.py",
     "lumielle_echo/embedding_maintenance.py",
@@ -342,6 +345,7 @@ def _reviewed_public_source_paths(root: str | Path) -> list[str]:
                 path.is_file()
                 and path.suffix.casefold() in PUBLIC_SOURCE_SUFFIXES
                 and relative not in PUBLIC_SOURCE_FILES
+                and relative not in PRIVATE_SOURCE_FILES
             ):
                 raise BoundaryError(f"unreviewed public source module: {relative}")
     return manifest

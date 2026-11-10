@@ -207,11 +207,7 @@ class PersonaTimelineProjection:
             return "user_confirmation"
         return "unknown"
 
-    def _current_persona(
-        self, identity: UmoIdentity, *,
-        candidates: list[CognitionCandidate] | None = None,
-        versions: list[PersonaVersion] | None = None,
-    ) -> dict[str, Any]:
+    def _current_persona(self, identity: UmoIdentity) -> dict[str, Any]:
         active = self.store.get_active_version(identity)
         if active is None:
             return {
@@ -221,9 +217,6 @@ class PersonaTimelineProjection:
                 "empty_message": "当前仍使用原始 AstrBot Persona，没有已应用的成长增量。",
                 "layers": {layer: [] for layer in _LAYER_LABELS},
             }
-        candidates = self.store.list_candidates(identity) if candidates is None else candidates
-        versions = self.store.list_versions(identity) if versions is None else versions
-        candidate_by_id = {candidate.id: candidate for candidate in candidates}
         all_subjects = {
             str(subject)
             for layer in (active.layers or {}).values()
@@ -231,7 +224,6 @@ class PersonaTimelineProjection:
             for subject in layer
         }
         scoped_candidates = self.store.list_candidates_for_subjects(identity, all_subjects)
-        scoped_by_id = {candidate.id: candidate for candidate in scoped_candidates}
         cooldowns = {str(row["dimension"]): row for row in self.store.list_cooldowns(identity)}
         now = datetime.now(timezone.utc).isoformat()
         result_layers: dict[str, list[dict[str, Any]]] = {}
@@ -241,13 +233,10 @@ class PersonaTimelineProjection:
             for subject, value in normalized[layer].items():
                 if not isinstance(value, dict):
                     continue
-                source_version = self._source_version_for_entry(
-                    str(subject), value, layer, versions,
+                source = self.store.resolve_version_slot_source(
+                    identity, active.id, layer=layer, subject_key=str(subject),
                 )
-                source_candidate = (
-                    None if source_version is None or source_version.trigger_candidate_id is None
-                    else scoped_by_id.get(int(source_version.trigger_candidate_id))
-                )
+                source_version, source_candidate = (None, None) if source is None else source
                 related = [item for item in scoped_candidates if item.subject_key == str(subject)]
                 observing = sorted(
                     (item for item in related if item.status in _OPEN_STATUSES),
@@ -285,22 +274,6 @@ class PersonaTimelineProjection:
             "layers": result_layers,
         }
 
-    @staticmethod
-    def _source_version_for_entry(
-        subject: str, entry: dict[str, Any], layer: str,
-        versions: list[PersonaVersion],
-    ) -> PersonaVersion | None:
-        for version in sorted(versions, key=lambda item: item.timeline_seq, reverse=True):
-            # Rollback restores a snapshot; it is not the original source of the dimension.
-            if version.rollback_of_version_id is not None or not isinstance(version.diff, dict):
-                continue
-            change = version.diff.get(subject)
-            if not isinstance(change, dict) or change.get("layer") != layer:
-                continue
-            if change.get("after") == entry:
-                return version
-        return None
-
     def timeline(self, identity: UmoIdentity, *, offset: int, limit: int) -> dict[str, Any]:
         rows, total = self.store.list_timeline_events(
             identity, offset=offset, limit=limit,
@@ -312,9 +285,7 @@ class PersonaTimelineProjection:
         events = [self._project_event(identity, row, candidate_by_id, version_by_id) for row in rows]
         page_size = max(1, min(100, int(limit)))
         return {
-            "current_persona": self._current_persona(
-                identity, candidates=candidates, versions=versions,
-            ),
+            "current_persona": self._current_persona(identity),
             "timeline": events,
             "pagination": {
                 "offset": max(0, int(offset)),

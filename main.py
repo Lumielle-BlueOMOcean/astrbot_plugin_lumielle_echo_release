@@ -115,7 +115,7 @@ def _provider_matches_type(provider, expected):
     return actual == expected_value or str(actual) == str(expected_value)
 
 
-@register(PLUGIN_ID, "Lumielle", "微光回响：Atomic 长期记忆与受控人格演化", "0.2.1")
+@register(PLUGIN_ID, "Lumielle", "微光回响：Atomic 长期记忆与受控人格演化", "0.2.2")
 class LumielleEchoPlugin(Star):
     def __init__(self, context: Context | None = None, config: dict | None = None):
         if Star is not object:
@@ -2362,9 +2362,13 @@ class LumielleEchoPlugin(Star):
         identity, resolved_persona = await self._resolve_identity(event, request)
         self._last_identity = identity
         self._remember_identity(identity)
-        await self._capture_persona_baseline(
-            identity, request, resolved_persona=resolved_persona,
+        persona_disabled = identity.persona_name == "[%None]" or (
+            resolved_persona is not None and resolved_persona.source == "disabled"
         )
+        if not persona_disabled:
+            await self._capture_persona_baseline(
+                identity, request, resolved_persona=resolved_persona,
+            )
         message = str(
             getattr(event, "message_str", "")
             or getattr(event, "get_message_str", lambda: "")()
@@ -2486,7 +2490,7 @@ class LumielleEchoPlugin(Star):
         )
         if context:
             self._append_transient_context(request, context)
-        overlay = self.service.get_persona_overlay(identity)
+        overlay = None if persona_disabled else self.service.get_persona_overlay(identity)
         if overlay and hasattr(request, "system_prompt") and overlay not in str(request.system_prompt or ""):
             request.system_prompt = f"{request.system_prompt or ''}\n\n{overlay}".strip()
 
@@ -2613,6 +2617,7 @@ class LumielleEchoPlugin(Star):
     async def _api_get_settings(self):
         from quart import request
         requested_token = str(request.args.get("identity_token", "") or "")
+        global_settings = self._config_evolution_settings()
         token = requested_token
         identity = self._identity_from_token(token)
         if identity is None and not token:
@@ -2625,7 +2630,9 @@ class LumielleEchoPlugin(Star):
                     identity = remembered_identity
         if identity is None:
             return self._json({
-                **self._config_evolution_settings(),
+                **global_settings,
+                "global_settings": global_settings,
+                "identity_overrides": {},
                 "identity_available": False,
                 "identity_token": "",
                 "branches": self._identity_branches(),
@@ -2633,6 +2640,8 @@ class LumielleEchoPlugin(Star):
         settings = self.settings.resolve(identity)
         return self._json({
             **asdict(settings),
+            "global_settings": global_settings,
+            "identity_overrides": self.settings.identity_overrides(identity),
             "identity_available": True,
             "identity_token": token,
             "branches": self._identity_branches(),

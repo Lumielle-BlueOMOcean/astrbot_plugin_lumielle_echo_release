@@ -7,7 +7,7 @@
 <p align="center">让 AstrBot Bot 在长期交互中形成记忆、自我认知与可受控演化的人格</p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.2.1-7c5ac7" alt="Version 0.2.1">
+  <img src="https://img.shields.io/badge/version-0.2.2-7c5ac7" alt="Version 0.2.2">
   <a href="https://github.com/AstrBotDevs/AstrBot"><img src="https://img.shields.io/badge/AstrBot-%3E%3D4.22.0-4b8bbe" alt="AstrBot >= 4.22.0"></a>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-5c5c5c" alt="AGPL-3.0"></a>
 </p>
@@ -42,7 +42,7 @@ Atomic Memory（原子记忆）把一段对话中的独立断言拆成多个 Ato
 
 ### 记忆检索
 
-当前正式链路使用 Atomic-only Retrieval（仅原子召回），由 lexical retrieval（词法召回）和 vector retrieval（向量召回）两条路线共同排序。Embedding（向量索引）是可选的派生索引；未启用或暂时不可用时，lexical retrieval 仍可工作。召回结果会受到数量和字符预算限制，避免把不受控的大段历史直接注入上下文。
+新实例默认使用 Atomic-only Retrieval（仅原子召回），由 lexical retrieval（词法召回）和 vector retrieval（向量召回）两条路线共同排序；已有实例沿用当前配置。Embedding（向量索引）是可选的派生索引；未启用或暂时不可用时，lexical retrieval 仍可工作。召回结果会受到数量和字符预算限制，避免把不受控的大段历史直接注入上下文。
 
 ### 自我认知
 
@@ -307,7 +307,7 @@ https://github.com/Lumielle-BlueOMOcean/astrbot_plugin_lumielle_echo_release
 
 ### 从 ZIP 安装
 
-从本仓库 [v0.2.1 Release](https://github.com/Lumielle-BlueOMOcean/astrbot_plugin_lumielle_echo_release/releases/tag/v0.2.1) 下载 `lumielle_echo-0.2.1.zip`，核对同一 Release 的 `SHA256SUMS`，然后在 AstrBot 插件管理中上传安装。`lumielle_echo-0.2.1-source.zip` 是源码归档；通常安装请选择运行 ZIP。
+当前源码为 **v0.2.2 未正式发行修订**，尚未提供对应的正式 Tag 或 Release。可在 AstrBot 插件管理中使用本仓库地址安装当前 `main` 源码；已有本地 RC 的隔离试用可继续上传 `lumielle_echo-0.2.2-rc1.zip`，并核对交付目录的 `SHA256SUMS`。历史 [v0.2.1 Release](https://github.com/Lumielle-BlueOMOcean/astrbot_plugin_lumielle_echo_release/releases/tag/v0.2.1) 保留供对照，不包含本轮修复。当前源码尚未通过 AstrBot Cloud 市场审核，生产升级与长期体验分别验收。
 
 插件身份为 `lumielle_echo`。仓库安装和 ZIP 安装只选一种，避免同时加载同一插件的两份代码。插件本身没有额外 Python 依赖；Chat 与 Embedding Provider 使用 AstrBot 的配置。
 
@@ -402,11 +402,33 @@ python scripts/ci/quality.py . --release --target-repo Lumielle-BlueOMOcean/astr
 python -c "from scripts.ci.fresh_install_smoke import run_candidate_package_smoke; print(run_candidate_package_smoke('.'))"
 ```
 
-运行上述检查需要 Python 3.12 与 Node.js 20；AstrBot loader 检查另外安装对应版本的 AstrBot。公共源码包含可独立运行的质量、打包、生命周期与加载检查。1547 项开发回归和真实模型联调属于发行前已完成的验证记录，不是上述命令会重新执行的内容。当前未上架 AstrBot 插件市场。
+运行上述检查需要 Python 3.12 与 Node.js 20；AstrBot loader 检查另外安装对应版本的 AstrBot。公共源码包含可独立运行的质量、打包、生命周期与加载检查。开发回归和此前隔离真实模型联调分别以各自候选的记录为准，不是上述命令会重新执行的内容；旧候选的联调不代表 v0.2.2 已做真实模型复验。当前未上架 AstrBot 插件市场。
 
 ## 版本与更新日志
 
-版本使用三段式 <code>MAJOR.MINOR.PATCH</code>：PATCH 用于不增加主要产品能力的向后兼容修复；MINOR 用于向后兼容的新能力、产品闭环或显著功能扩展；MAJOR 用于重大兼容边界变化或新的稳定产品代际。本仓库版本为 <code>0.2.1</code>；实际发行时间以 GitHub Release 为准。
+版本使用三段式 <code>MAJOR.MINOR.PATCH</code>：PATCH 用于不增加主要产品能力的向后兼容修复；MINOR 用于向后兼容的新能力、产品闭环或显著功能扩展；MAJOR 用于重大兼容边界变化或新的稳定产品代际。当前源码版本为 <code>0.2.2</code>，状态为 Unreleased；实际发行时间以 GitHub Release 为准。
+
+### 0.2.2 - Unreleased
+
+#### 修复
+
+- 遗忘/更正控制屏障按每个动作已经绑定的真实来源判断，避免旧消息与无关新消息混批后重新写回被撤回事实。
+- Legacy 检索在异步 Embedding 完成后读取记忆，避免返回等待期间已遗忘、过期或更正的旧快照。
+- Atomic 检索不再把零或负相似度当作向量命中；独立词法命中仍可正常召回。
+- 人格回滚只撤销目标版本之后的 Atomic Evidence，保留目标之前的有效证据。
+- 明确恢复历史人格快照后，可继续形成新的 Dynamic 修订；保留旧候选与旧证据的失效历史。
+- Legacy 已生效人格获得同命题新来源时保留支持率、样本和采用门槛；时间线沿真实版本继承/恢复链解释来源。
+- 设置页面区分全局默认和用户覆盖，只保存实际修改字段，并可恢复当前用户继承，避免覆盖值意外扩散到其他用户。
+- 尊重 AstrBot 明确的无人格选择 `[%None]`，跳过人格基线与成长增量，普通事实记忆仍按现有配置工作。
+- 冲突与质量候选排除 `user/bot/assistant` 等共同命名结构，避免无关记忆触发多余模型判断。
+
+#### 调整
+
+- 忽略或纯幂等分析不再触发无关的冲突/质量模型维护；失败判断等待下一次实际记忆变更重试，不新增后台重试队列。
+- 单条 Atom 补索引改为按指定 ID 查询并复用快照，避免重复扫描其他用户的全部 Atom；人格发现结果未变化时跳过配置写盘。
+- 静态阶段 Schema 与离线 Codex CLI 执行器分离，运行安装包和公开源码不再包含该执行器，历史导入 Schema 与私有离线工具保持兼容。
+- 总览文案明确新实例默认与已有实例配置的区别；本地运行数据目录整体排除出开发版本控制。
+- v0.2.2 为未正式发行修订；正式 Tag / Release 与市场审核分别记录，旧版本 Tag 与附件保持原样。
 
 ### 0.2.1
 

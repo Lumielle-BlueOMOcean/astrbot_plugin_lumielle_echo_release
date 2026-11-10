@@ -31,7 +31,7 @@ import uuid
 from typing import Any, Iterable, Mapping, Sequence
 
 from .analyzer import SemanticAnalyzer
-from .codex_executor import stage_output_schema
+from .stage_schemas import stage_output_schema
 from .models import MemoryAction, serialize_memory_action
 from .semantic_executor import ExecutorSnapshot, SemanticInvocationRequest, SemanticInvocationResult
 from .validator import validate_historical_actions

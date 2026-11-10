@@ -28,7 +28,7 @@
     </nav>
 
     <section class="overview-grid workspace-page" data-page="overview" aria-label="运行概览">
-      <article class="summary-card"><span>记忆底座</span><strong>Atomic-only（仅原子）正式召回</strong><small>Atomic（原子记忆）生命周期与 Persona（人格）引用是当前权威；历史 Legacy（旧记忆）仅保留作档案</small></article>
+      <article class="summary-card"><span>记忆底座</span><strong>分支记忆与生命周期</strong><small>新实例默认使用 Atomic（原子记忆）；已有实例沿用其配置，召回和人格引用路线以 AstrBot 插件配置为准</small></article>
       <article class="summary-card"><span>人格演化</span><strong>自治候选 / 版本管理</strong><small>观察门槛、主动提前采用、版本记录与回滚</small></article>
       <article class="summary-card"><span>当前连接</span><strong id="connectionSummary">正在连接</strong><small id="identitySummary">等待 AstrBot 会话身份</small></article>
     </section>
@@ -55,7 +55,9 @@
         <div class="field slider"><label for="plasticity">可塑性 <output id="plasticityValue">50</output></label><input id="plasticity" name="plasticity" type="range" min="0" max="100" step="1" value="50"></div>
       </div>
       <p class="hint">档位会调整 Core / Secondary / Dynamic 的基础门槛；可塑性与原始人格冲突继续由同一门槛公式计算。可塑性为 0 时继续观察与积累证据，但不会自动应用。</p>
-      <button id="save" type="button">保存设置</button>
+      <button id="save" type="button" disabled>保存设置</button>
+      <button id="resetSettingsInheritance" type="button" class="button-secondary" disabled>恢复当前用户继承</button>
+      <p id="settingsInheritance" class="hint">全局默认对未设置用户覆盖的分支生效。</p>
     </section>
 
     <section class="panel workspace-page" id="memories" data-page="memory">

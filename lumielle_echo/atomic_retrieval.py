@@ -737,11 +737,18 @@ class AtomicRetriever:
                     ]
                     vector_population_scanned = len(rows)
                     vector_valid_candidate_count = len(all_vector_rows)
-                    all_vector_rows.sort(
-                        key=lambda row: (_cosine(query_vector, row.embedding), row.atom.id),
+                    # RRF 只保留名次，不能让零/负相关也凭名次变成语义证据。
+                    # 词法命中仍由独立路线保留，不臆设跨模型的正相似阈值。
+                    scored_vector_rows = []
+                    for row in all_vector_rows:
+                        similarity = _cosine(query_vector, row.embedding)
+                        if similarity > 0.0:
+                            scored_vector_rows.append((similarity, row))
+                    scored_vector_rows.sort(
+                        key=lambda item: (item[0], item[1].atom.id),
                         reverse=True,
                     )
-                    vector_rows = all_vector_rows[: self.candidate_limit]
+                    vector_rows = [row for _, row in scored_vector_rows[: self.candidate_limit]]
                 else:
                     if not prepared.error:
                         vector_status = "degraded"

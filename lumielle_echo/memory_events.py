@@ -424,6 +424,23 @@ class MemoryEventLedger:
         events = [event for event in source_events if event.sequence > 0]
         if not events:
             return False
+        provenance = getattr(action, "source_provenance", None)
+        if isinstance(provenance, dict) and provenance.get("contract") == "SOURCE_SPAN_V1":
+            if provenance.get("identity") != identity.__dict__:
+                raise ValueError("source_event_identity_mismatch")
+            sources = provenance.get("sources")
+            if not isinstance(sources, list) or not sources:
+                raise ValueError("source_event_binding_mismatch")
+            # Service has validated these bindings against the original batch.
+            # Use its trusted events, never a sequence supplied in provenance.
+            events_by_id = {
+                event.source_event_id: event for event in events
+                if event.identity == identity
+            }
+            try:
+                events = [events_by_id[source["source_event_id"]] for source in sources]
+            except (KeyError, TypeError) as exc:
+                raise ValueError("source_event_binding_mismatch") from exc
         fences = self.conn.execute(
             "SELECT effective_after_sequence, type_path, subject_key, normalized_content "
             "FROM memory_control_fences WHERE scope_key=? AND umo_id=? ORDER BY effective_after_sequence",

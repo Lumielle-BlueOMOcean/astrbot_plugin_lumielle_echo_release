@@ -26,6 +26,7 @@ MAX_CONFLICT_MEMBERS_PER_GROUP = 12
 MAX_EVIDENCE_EXCERPTS = 3
 MAX_EVIDENCE_EXCERPT_CHARS = 240
 MIN_DESTRUCTIVE_CONFIDENCE = 0.80
+STRUCTURAL_SUBJECT_TOKENS = frozenset({"user", "bot", "assistant"})
 CONFLICT_REPLACEMENT_REASON = "auto_memory_conflict_replacement"
 CONFLICT_ROLLBACK_REASON = "user_memory_conflict_rollback"
 CONFLICT_LOW_CONFIDENCE_REASON = "local_low_confidence_replacement_deferred"
@@ -244,9 +245,12 @@ class MemoryConflictService:
         inverted: dict[str, list[int]] = {}
         for row in recent:
             atom_id = int(row["id"])
-            terms = set(self.repository._lexical_tokens(
-                f"{row['subject_key']} {row['content']}"
-            ))
+            terms = {
+                token for token in self.repository._lexical_tokens(
+                    f"{row['subject_key']} {row['content']}"
+                )
+                if token not in STRUCTURAL_SUBJECT_TOKENS
+            }
             token_sets[atom_id] = terms
             for token in terms:
                 inverted.setdefault(token, []).append(atom_id)

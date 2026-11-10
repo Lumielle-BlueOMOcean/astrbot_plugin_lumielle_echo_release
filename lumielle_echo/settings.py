@@ -195,7 +195,8 @@ class SettingsService:
             values[field] = self.config.get(config_key, default)
         return values
 
-    def _overrides(self, identity: UmoIdentity) -> dict[str, Any]:
+    def identity_overrides(self, identity: UmoIdentity) -> dict[str, Any]:
+        """返回显式用户覆盖；缺失字段仍继承全局默认。"""
         row = self.store.conn.execute(
             "SELECT overrides_json FROM persona_setting_overrides WHERE identity_key=?",
             (self.store._preference_key(identity),),
@@ -221,7 +222,7 @@ class SettingsService:
         scope_mode: str | None = None,
     ) -> EvolutionSettings:
         values = self._global_values()
-        overrides = self._overrides(identity) if identity is not None else {}
+        overrides = self.identity_overrides(identity) if identity is not None else {}
         selected_scope = str(
             scope_mode
             if scope_mode is not None
@@ -283,7 +284,7 @@ class SettingsService:
         identity: UmoIdentity,
         patch: Mapping[str, Any],
     ) -> EvolutionSettings:
-        current = self._overrides(identity)
+        current = self.identity_overrides(identity)
         candidate = dict(current)
         for key, value in patch.items():
             if key not in _FIELDS:

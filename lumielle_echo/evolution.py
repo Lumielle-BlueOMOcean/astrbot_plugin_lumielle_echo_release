@@ -295,109 +295,16 @@ class PersonaEvolutionEngine:
         self, identity: UmoIdentity, version: PersonaVersion, *,
         type_path: str, subject_key: str, content: str, scope_mode: str,
     ) -> CognitionCandidate | None:
-        """Resolve the scoped candidate that introduced an unchanged current slot.
-
-        Persona versions are complete snapshots. A later version can inherit a
-        dimension from its parent, while a rollback explicitly restores its
-        target version. Follow those persisted relationships instead of treating
-        the newest historical ``applied`` candidate as current truth.
-        """
-
-        expected_scope = self.store.evolution_scope_key(identity, scope_mode)
-        seen: set[int] = set()
-        current = version
-        while current is not None:
-            if current.id in seen or current.evolution_scope_key != expected_scope:
-                return None
-            seen.add(current.id)
-            layer = self._layer(type_path)
-            layers = self._normalized_layers(current.layers)
-            entry = layers[layer].get(subject_key)
-            if not isinstance(entry, dict) or not isinstance(entry.get("content"), str):
-                return None
-            if not _same_candidate_content(entry["content"], content):
-                return None
-
-            if current.rollback_of_version_id is not None:
-                try:
-                    target = self.store.get_version(
-                        identity, current.rollback_of_version_id,
-                        scope_mode=scope_mode,
-                    )
-                except (KeyError, ValueError):
-                    return None
-                target_entry = self._normalized_layers(target.layers)[layer].get(subject_key)
-                if (
-                    not isinstance(target_entry, dict)
-                    or not isinstance(target_entry.get("content"), str)
-                    or not _same_candidate_content(target_entry["content"], content)
-                ):
-                    return None
-                current = target
-                continue
-
-            if not isinstance(current.diff, dict):
-                return None
-
-            trigger: CognitionCandidate | None = None
-            if current.trigger_candidate_id is not None:
-                try:
-                    trigger = self.store.get_candidate(
-                        identity, current.trigger_candidate_id,
-                        scope_mode=scope_mode,
-                    )
-                except (KeyError, ValueError):
-                    return None
-                if trigger.evolution_scope_key != expected_scope:
-                    return None
-
-            if subject_key in current.diff:
-                slot_diff = current.diff[subject_key]
-                if (
-                    not isinstance(slot_diff, dict)
-                    or slot_diff.get("layer") != layer
-                    or not isinstance(slot_diff.get("after"), dict)
-                    or not isinstance(slot_diff["after"].get("content"), str)
-                    or not _same_candidate_content(
-                        slot_diff["after"]["content"], content,
-                    )
-                    or trigger is None
-                    or trigger.type_path != type_path
-                    or trigger.subject_key != subject_key
-                    or not _same_candidate_content(trigger.content, content)
-                    or trigger.status != "applied"
-                    or trigger.invalidated_by_rollback is not None
-                ):
-                    return None
-                return trigger
-
-            # A version triggered by this same slot must carry a matching diff;
-            # otherwise its source relationship is incomplete and cannot be
-            # inferred from the snapshot alone.
-            if trigger is not None and trigger.subject_key == subject_key:
-                try:
-                    trigger_layer = self._layer(trigger.type_path)
-                except ValueError:
-                    return None
-                if trigger_layer == layer:
-                    return None
-            if current.parent_version_id is None:
-                return None
-            try:
-                parent = self.store.get_version(
-                    identity, current.parent_version_id, scope_mode=scope_mode,
-                )
-            except (KeyError, ValueError):
-                return None
-            parent_entry = self._normalized_layers(parent.layers)[layer].get(subject_key)
-            if (
-                not isinstance(parent_entry, dict)
-                or not isinstance(parent_entry.get("content"), str)
-                or not _same_candidate_content(parent_entry["content"], content)
-            ):
-                return None
-            current = parent
-        return None
+        source = self.store.resolve_version_slot_source(
+            identity, version.id, layer=self._layer(type_path),
+            subject_key=subject_key, scope_mode=scope_mode,
+        )
+        if source is None:
+            return None
+        _source_version, candidate = source
+        if candidate.type_path != type_path or not _same_candidate_content(candidate.content, content):
+            return None
+        return candidate
 
     def _active_slot_source(
         self, identity: UmoIdentity, *, type_path: str, subject_key: str,
@@ -494,6 +401,14 @@ class PersonaEvolutionEngine:
             return self.store.upsert_candidate(
                 identity, subject_key=candidate.subject_key, type_path=candidate.type_path,
                 content=candidate.content,
+                support_rate=candidate.support_rate,
+                distinct_sessions=candidate.distinct_sessions,
+                required_support=candidate.required_support,
+                required_samples=candidate.required_samples,
+                baseline_conflict=candidate.baseline_conflict,
+                change_strength=candidate.change_strength,
+                impact_level=candidate.impact_level,
+                decision_reason=candidate.decision_reason,
                 trigger_memory_ids=source_ids, candidate_id=candidate.id,
             )
 
@@ -616,6 +531,8 @@ class PersonaEvolutionEngine:
             applied = active_candidate
             matching_applied = (
                 applied if applied is not None
+                and applied.status == "applied"
+                and applied.invalidated_by_rollback is None
                 and _same_candidate_proposition(applied, type_path, content)
                 else None
             )

@@ -86,6 +86,9 @@ class MemoryRetriever:
         self, identity: UmoIdentity, query: str, *, limit: int = 24,
         read_only: bool = False,
     ) -> list[StoredMemory]:
+        # Provider 等待期间可能发生遗忘、纠正或到期；恢复后才读取候选，
+        # 后续同步评分不会再把等待前的旧内容带入正式上下文。
+        query_vector = await self.embeddings.embed(query)
         candidates = self.store.list_active(
             identity, limit=self.candidate_limit, mark_expired=not read_only,
         )
@@ -97,7 +100,6 @@ class MemoryRetriever:
             by_id = {item.id: item for item in candidates}
             by_id.update({item.id: item for item in lexical})
             candidates = list(by_id.values())
-        query_vector = await self.embeddings.embed(query)
         scored: list[tuple[float, StoredMemory]] = []
         for memory in candidates:
             local = _local_similarity(memory, query)
